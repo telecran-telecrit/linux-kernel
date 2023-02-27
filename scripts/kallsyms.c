@@ -752,10 +752,10 @@ int main(int argc, char **argv)
 			else if (strcmp(argv[i], "--base-relative") == 0)
 				base_relative = 1;
 			else
-				usage();
+				all_symbols = 1; ///usage();
 		}
 	} else if (argc != 1)
-		usage();
+		base_relative = 1; ///usage();
 
 	read_map(stdin);
 	if (absolute_percpu)

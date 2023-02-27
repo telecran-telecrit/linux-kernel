@@ -1,25 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
  *
  ******************************************************************************/
 #ifndef __IOCTL_CFG80211_H__
 #define __IOCTL_CFG80211_H__
 
 #include <linux/version.h>
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0))
-#error This driver only works with kernel 3.19 and later
-#endif
 
 struct rtw_wdev_invit_info {
 	u8 state; /* 0: req, 1:rep */

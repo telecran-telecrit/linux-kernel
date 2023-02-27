@@ -373,7 +373,7 @@ static int hip04_tx_reclaim(struct net_device *ndev, bool force)
 	unsigned int count;
 
 	smp_rmb();
-	count = tx_count(ACCESS_ONCE(priv->tx_head), tx_tail);
+	count = tx_count(READ_ONCE(priv->tx_head), tx_tail);
 	if (count == 0)
 		goto out;
 
@@ -413,6 +413,15 @@ out:
 	return count;
 }
 
+static void hip04_start_tx_timer(struct hip04_priv *priv)
+{
+	unsigned long ns = priv->tx_coalesce_usecs * NSEC_PER_USEC / 2;
+
+	/* allow timer to fire after half the time at the earliest */
+	hrtimer_start_range_ns(&priv->tx_coalesce_timer, ns_to_ktime(ns),
+			       ns, HRTIMER_MODE_REL);
+}
+
 static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct hip04_priv *priv = netdev_priv(ndev);
@@ -422,7 +431,7 @@ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	dma_addr_t phys;
 
 	smp_rmb();
-	count = tx_count(tx_head, ACCESS_ONCE(priv->tx_tail));
+	count = tx_count(tx_head, READ_ONCE(priv->tx_tail));
 	if (count == (TX_DESC_NUM - 1)) {
 		netif_stop_queue(ndev);
 		return NETDEV_TX_BUSY;
@@ -466,8 +475,7 @@ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		}
 	} else if (!hrtimer_is_queued(&priv->tx_coalesce_timer)) {
 		/* cleanup not pending yet, start a new timer */
-		hrtimer_start_expires(&priv->tx_coalesce_timer,
-				      HRTIMER_MODE_REL);
+		hip04_start_tx_timer(priv);
 	}
 
 	return NETDEV_TX_OK;
@@ -492,8 +500,10 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
 	while (cnt && !last) {
 		buf = priv->rx_buf[priv->rx_head];
 		skb = build_skb(buf, priv->rx_buf_size);
-		if (unlikely(!skb))
+		if (unlikely(!skb)) {
 			net_dbg_ratelimited("build_skb failed\n");
+			goto refill;
+		}
 
 		dma_unmap_single(&ndev->dev, priv->rx_phys[priv->rx_head],
 				 RX_BUF_SIZE, DMA_FROM_DEVICE);
@@ -520,6 +530,7 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
 			rx++;
 		}
 
+refill:
 		buf = netdev_alloc_frag(priv->rx_buf_size);
 		if (!buf)
 			goto done;
@@ -544,12 +555,12 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
 		priv->reg_inten |= RCV_INT;
 		writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
 	}
-	napi_complete(napi);
+	napi_complete_done(napi, rx);
 done:
 	/* clean up tx descriptors and start a new timer if necessary */
 	tx_remaining = hip04_tx_reclaim(ndev, false);
 	if (rx < budget && tx_remaining)
-		hrtimer_start_expires(&priv->tx_coalesce_timer, HRTIMER_MODE_REL);
+		hip04_start_tx_timer(priv);
 
 	return rx;
 }
@@ -589,7 +600,7 @@ static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-enum hrtimer_restart tx_done(struct hrtimer *hrtimer)
+static enum hrtimer_restart tx_done(struct hrtimer *hrtimer)
 {
 	struct hip04_priv *priv;
 
@@ -690,11 +701,6 @@ static void hip04_tx_timeout_task(struct work_struct *work)
 	hip04_mac_open(priv->ndev);
 }
 
-static struct net_device_stats *hip04_get_stats(struct net_device *ndev)
-{
-	return &ndev->stats;
-}
-
 static int hip04_get_coalesce(struct net_device *netdev,
 			      struct ethtool_coalesce *ec)
 {
@@ -744,21 +750,19 @@ static void hip04_get_drvinfo(struct net_device *netdev,
 	strlcpy(drvinfo->version, DRV_VERSION, sizeof(drvinfo->version));
 }
 
-static struct ethtool_ops hip04_ethtool_ops = {
+static const struct ethtool_ops hip04_ethtool_ops = {
 	.get_coalesce		= hip04_get_coalesce,
 	.set_coalesce		= hip04_set_coalesce,
 	.get_drvinfo		= hip04_get_drvinfo,
 };
 
-static struct net_device_ops hip04_netdev_ops = {
+static const struct net_device_ops hip04_netdev_ops = {
 	.ndo_open		= hip04_mac_open,
 	.ndo_stop		= hip04_mac_stop,
-	.ndo_get_stats		= hip04_get_stats,
 	.ndo_start_xmit		= hip04_mac_start_xmit,
 	.ndo_set_mac_address	= hip04_set_mac_address,
 	.ndo_tx_timeout         = hip04_timeout,
 	.ndo_validate_addr	= eth_validate_addr,
-	.ndo_change_mtu		= eth_change_mtu,
 };
 
 static int hip04_alloc_ring(struct net_device *ndev, struct device *d)
@@ -790,7 +794,7 @@ static void hip04_free_ring(struct net_device *ndev, struct device *d)
 
 	for (i = 0; i < RX_DESC_NUM; i++)
 		if (priv->rx_buf[i])
-			put_page(virt_to_head_page(priv->rx_buf[i]));
+			skb_free_frag(priv->rx_buf[i]);
 
 	for (i = 0; i < TX_DESC_NUM; i++)
 		if (priv->tx_skb[i])
@@ -808,8 +812,7 @@ static int hip04_mac_probe(struct platform_device *pdev)
 	struct net_device *ndev;
 	struct hip04_priv *priv;
 	struct resource *res;
-	unsigned int irq;
-	ktime_t txtime;
+	int irq;
 	int ret;
 
 	ndev = alloc_etherdev(sizeof(struct hip04_priv));
@@ -819,6 +822,7 @@ static int hip04_mac_probe(struct platform_device *pdev)
 	priv = netdev_priv(ndev);
 	priv->ndev = ndev;
 	platform_set_drvdata(pdev, ndev);
+	SET_NETDEV_DEV(ndev, &pdev->dev);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	priv->base = devm_ioremap_resource(d, res);
@@ -846,9 +850,6 @@ static int hip04_mac_probe(struct platform_device *pdev)
 	 */
 	priv->tx_coalesce_frames = TX_DESC_NUM * 3 / 4;
 	priv->tx_coalesce_usecs = 200;
-	/* allow timer to fire after half the time at the earliest */
-	txtime = ktime_set(0, priv->tx_coalesce_usecs * NSEC_PER_USEC / 2);
-	hrtimer_set_expires_range(&priv->tx_coalesce_timer, txtime, txtime);
 	priv->tx_coalesce_timer.function = tx_done;
 
 	priv->map = syscon_node_to_regmap(arg.np);
@@ -891,21 +892,19 @@ static int hip04_mac_probe(struct platform_device *pdev)
 
 	INIT_WORK(&priv->tx_timeout_task, hip04_tx_timeout_task);
 
-	ether_setup(ndev);
 	ndev->netdev_ops = &hip04_netdev_ops;
 	ndev->ethtool_ops = &hip04_ethtool_ops;
 	ndev->watchdog_timeo = TX_TIMEOUT;
 	ndev->priv_flags |= IFF_UNICAST_FLT;
 	ndev->irq = irq;
 	netif_napi_add(ndev, &priv->napi, hip04_rx_poll, NAPI_POLL_WEIGHT);
-	SET_NETDEV_DEV(ndev, &pdev->dev);
 
 	hip04_reset_ppe(priv);
 	if (priv->phy_mode == PHY_INTERFACE_MODE_MII)
 		hip04_config_port(ndev, SPEED_100, DUPLEX_FULL);
 
 	hip04_config_fifo(priv);
-	random_ether_addr(ndev->dev_addr);
+	eth_random_addr(ndev->dev_addr);
 	hip04_update_mac_address(ndev);
 
 	ret = hip04_alloc_ring(ndev, d);
@@ -961,7 +960,6 @@ static struct platform_driver hip04_mac_driver = {
 	.remove	= hip04_remove,
 	.driver	= {
 		.name		= DRV_NAME,
-		.owner		= THIS_MODULE,
 		.of_match_table	= hip04_mac_match,
 	},
 };

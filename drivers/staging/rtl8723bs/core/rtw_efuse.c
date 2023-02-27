@@ -1,15 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
  *
  ******************************************************************************/
 #define _RTW_EFUSE_C_
@@ -20,42 +12,38 @@
 #include <linux/jiffies.h>
 
 
-/*------------------------Define local variable------------------------------*/
-u8 fakeEfuseBank = 0;
-u32 fakeEfuseUsedBytes = 0;
-u8 fakeEfuseContent[EFUSE_MAX_HW_SIZE]={0};
-u8 fakeEfuseInitMap[EFUSE_MAX_MAP_LEN]={0};
-u8 fakeEfuseModifiedMap[EFUSE_MAX_MAP_LEN]={0};
+/* Define global variables */
+u8 fakeEfuseBank;
+u32 fakeEfuseUsedBytes;
+u8 fakeEfuseContent[EFUSE_MAX_HW_SIZE] = {0};
+u8 fakeEfuseInitMap[EFUSE_MAX_MAP_LEN] = {0};
+u8 fakeEfuseModifiedMap[EFUSE_MAX_MAP_LEN] = {0};
 
-u32 BTEfuseUsedBytes = 0;
+u32 BTEfuseUsedBytes;
 u8 BTEfuseContent[EFUSE_MAX_BT_BANK][EFUSE_MAX_HW_SIZE];
-u8 BTEfuseInitMap[EFUSE_BT_MAX_MAP_LEN]={0};
-u8 BTEfuseModifiedMap[EFUSE_BT_MAX_MAP_LEN]={0};
+u8 BTEfuseInitMap[EFUSE_BT_MAX_MAP_LEN] = {0};
+u8 BTEfuseModifiedMap[EFUSE_BT_MAX_MAP_LEN] = {0};
 
-u32 fakeBTEfuseUsedBytes = 0;
+u32 fakeBTEfuseUsedBytes;
 u8 fakeBTEfuseContent[EFUSE_MAX_BT_BANK][EFUSE_MAX_HW_SIZE];
-u8 fakeBTEfuseInitMap[EFUSE_BT_MAX_MAP_LEN]={0};
-u8 fakeBTEfuseModifiedMap[EFUSE_BT_MAX_MAP_LEN]={0};
-/*------------------------Define local variable------------------------------*/
+u8 fakeBTEfuseInitMap[EFUSE_BT_MAX_MAP_LEN] = {0};
+u8 fakeBTEfuseModifiedMap[EFUSE_BT_MAX_MAP_LEN] = {0};
 
-/*  */
 #define REG_EFUSE_CTRL		0x0030
 #define EFUSE_CTRL			REG_EFUSE_CTRL		/*  E-Fuse Control. */
-/*  */
 
 bool
 Efuse_Read1ByteFromFakeContent(
 	struct adapter *padapter,
 	u16 	Offset,
-	u8 *Value	);
+	u8 *Value);
 bool
 Efuse_Read1ByteFromFakeContent(
 	struct adapter *padapter,
 	u16 	Offset,
-	u8 *Value	)
+	u8 *Value)
 {
-	if (Offset >= EFUSE_MAX_HW_SIZE)
-	{
+	if (Offset >= EFUSE_MAX_HW_SIZE) {
 		return false;
 	}
 	/* DbgPrint("Read fake content, offset = %d\n", Offset); */
@@ -70,21 +58,19 @@ bool
 Efuse_Write1ByteToFakeContent(
 	struct adapter *padapter,
 	u16 	Offset,
-	u8 Value	);
+	u8 Value);
 bool
 Efuse_Write1ByteToFakeContent(
 	struct adapter *padapter,
 	u16 	Offset,
-	u8 Value	)
+	u8 Value)
 {
-	if (Offset >= EFUSE_MAX_HW_SIZE)
-	{
+	if (Offset >= EFUSE_MAX_HW_SIZE) {
 		return false;
 	}
 	if (fakeEfuseBank == 0)
 		fakeEfuseContent[Offset] = Value;
-	else
-	{
+	else{
 		fakeBTEfuseContent[fakeEfuseBank-1][Offset] = Value;
 	}
 	return true;
@@ -135,7 +121,7 @@ u8 PwrState)
  *---------------------------------------------------------------------------*/
 u16
 Efuse_GetCurrentSize(
-	struct adapter *	padapter,
+	struct adapter *padapter,
 	u8 	efuseType,
 	bool		bPseudoTest)
 {
@@ -151,10 +137,14 @@ u8
 Efuse_CalculateWordCnts(u8 word_en)
 {
 	u8 word_cnts = 0;
-	if (!(word_en & BIT(0)))	word_cnts++; /*  0 : write enable */
-	if (!(word_en & BIT(1)))	word_cnts++;
-	if (!(word_en & BIT(2)))	word_cnts++;
-	if (!(word_en & BIT(3)))	word_cnts++;
+	if (!(word_en & BIT(0)))
+		word_cnts++; /*  0 : write enable */
+	if (!(word_en & BIT(1)))
+		word_cnts++;
+	if (!(word_en & BIT(2)))
+		word_cnts++;
+	if (!(word_en & BIT(3)))
+		word_cnts++;
 	return word_cnts;
 }
 
@@ -162,7 +152,7 @@ Efuse_CalculateWordCnts(u8 word_en)
 /* 	Description: */
 /* 		1. Execute E-Fuse read byte operation according as map offset and */
 /* 		    save to E-Fuse table. */
-/* 		2. Refered from SD1 Richard. */
+/* 		2. Referred from SD1 Richard. */
 /*  */
 /* 	Assumption: */
 /* 		1. Boot from E-Fuse and successfully auto-load. */
@@ -237,10 +227,9 @@ u16 	Address)
 	u32 k = 0;
 	u16 contentLen = 0;
 
-	EFUSE_GetEfuseDefinition(Adapter, EFUSE_WIFI , TYPE_EFUSE_REAL_CONTENT_LEN, (void *)&contentLen, false);
+	EFUSE_GetEfuseDefinition(Adapter, EFUSE_WIFI, TYPE_EFUSE_REAL_CONTENT_LEN, (void *)&contentLen, false);
 
-	if (Address < contentLen)	/* E-fuse 512Byte */
-	{
+	if (Address < contentLen) {/* E-fuse 512Byte */
 		/* Write E-fuse Register address bit0~7 */
 		temp = Address & 0xFF;
 		rtw_write8(Adapter, EFUSE_CTRL+1, temp);
@@ -256,23 +245,20 @@ u16 	Address)
 
 		/* Wait Write-ready (0x30[31]= 1) */
 		Bytetemp = rtw_read8(Adapter, EFUSE_CTRL+3);
-		while (!(Bytetemp & 0x80))
-		{
+		while (!(Bytetemp & 0x80)) {
 			Bytetemp = rtw_read8(Adapter, EFUSE_CTRL+3);
 			k++;
-			if (k == 1000)
-			{
+			if (k == 1000) {
 				k = 0;
 				break;
 			}
 		}
-		data =rtw_read8(Adapter, EFUSE_CTRL);
+		data = rtw_read8(Adapter, EFUSE_CTRL);
 		return data;
-	}
-	else
+	} else
 		return 0xFF;
 
-}/* EFUSE_Read1Byte */
+} /* EFUSE_Read1Byte */
 
 /*  11/16/2008 MH Read one byte from real Efuse. */
 u8
@@ -289,8 +275,7 @@ bool		bPseudoTest)
 	/* DBG_871X("===> EFUSE_OneByteRead(), addr = %x\n", addr); */
 	/* DBG_871X("===> EFUSE_OneByteRead() start, 0x34 = 0x%X\n", rtw_read32(padapter, EFUSE_TEST)); */
 
-	if (bPseudoTest)
-	{
+	if (bPseudoTest) {
 		bResult = Efuse_Read1ByteFromFakeContent(padapter, addr, data);
 		return bResult;
 	}
@@ -298,12 +283,12 @@ bool		bPseudoTest)
 	/*  <20130121, Kordan> For SMIC EFUSE specificatoin. */
 	/* 0x34[11]: SW force PGMEN input of efuse to high. (for the bank selected by 0x34[9:8]) */
 	/* PHY_SetMacReg(padapter, 0x34, BIT11, 0); */
-	rtw_write16(padapter, 0x34, rtw_read16(padapter, 0x34)& (~BIT11));
+	rtw_write16(padapter, 0x34, rtw_read16(padapter, 0x34) & (~BIT11));
 
 	/*  -----------------e-fuse reg ctrl --------------------------------- */
 	/* address */
 	rtw_write8(padapter, EFUSE_CTRL+1, (u8)(addr&0xff));
-	rtw_write8(padapter, EFUSE_CTRL+2, ((u8)((addr>>8) &0x03)) |
+	rtw_write8(padapter, EFUSE_CTRL+2, ((u8)((addr>>8) & 0x03)) |
 	(rtw_read8(padapter, EFUSE_CTRL+2)&0xFC));
 
 	/* rtw_write8(padapter, EFUSE_CTRL+3,  0x72); read cmd */
@@ -311,18 +296,14 @@ bool		bPseudoTest)
 	readbyte = rtw_read8(padapter, EFUSE_CTRL+3);
 	rtw_write8(padapter, EFUSE_CTRL+3, (readbyte & 0x7f));
 
-	while (!(0x80 &rtw_read8(padapter, EFUSE_CTRL+3)) && (tmpidx<1000))
-	{
+	while (!(0x80 & rtw_read8(padapter, EFUSE_CTRL+3)) && (tmpidx < 1000)) {
 		mdelay(1);
 		tmpidx++;
 	}
-	if (tmpidx<100)
-	{
-		*data =rtw_read8(padapter, EFUSE_CTRL);
+	if (tmpidx < 100) {
+		*data = rtw_read8(padapter, EFUSE_CTRL);
 		bResult = true;
-	}
-	else
-	{
+	} else{
 		*data = 0xff;
 		bResult = false;
 		DBG_871X("%s: [ERROR] addr = 0x%x bResult =%d time out 1s !!!\n", __func__, addr, bResult);
@@ -341,14 +322,13 @@ u8 	data,
 bool		bPseudoTest)
 {
 	u8 tmpidx = 0;
-	u8 bResult =false;
+	u8 bResult = false;
 	u32 efuseValue = 0;
 
 	/* DBG_871X("===> EFUSE_OneByteWrite(), addr = %x data =%x\n", addr, data); */
 	/* DBG_871X("===> EFUSE_OneByteWrite() start, 0x34 = 0x%X\n", rtw_read32(padapter, EFUSE_TEST)); */
 
-	if (bPseudoTest)
-	{
+	if (bPseudoTest) {
 		bResult = Efuse_Write1ByteToFakeContent(padapter, addr, data);
 		return bResult;
 	}
@@ -369,20 +349,17 @@ bool		bPseudoTest)
 	/*  <20130121, Kordan> For SMIC EFUSE specificatoin. */
 	/* 0x34[11]: SW force PGMEN input of efuse to high. (for the bank selected by 0x34[9:8]) */
 	/* PHY_SetMacReg(padapter, 0x34, BIT11, 1); */
-	rtw_write16(padapter, 0x34, rtw_read16(padapter, 0x34)| (BIT11));
+	rtw_write16(padapter, 0x34, rtw_read16(padapter, 0x34) | (BIT11));
 	rtw_write32(padapter, EFUSE_CTRL, 0x90600000|((addr<<8 | data)));
 
-	while ((0x80 &  rtw_read8(padapter, EFUSE_CTRL+3)) && (tmpidx<100)) {
+	while ((0x80 &  rtw_read8(padapter, EFUSE_CTRL+3)) && (tmpidx < 100)) {
 		mdelay(1);
 		tmpidx++;
 	}
 
-	if (tmpidx<100)
-	{
+	if (tmpidx < 100) {
 		bResult = true;
-	}
-	else
-	{
+	} else{
 		bResult = false;
 		DBG_871X("%s: [ERROR] addr = 0x%x , efuseValue = 0x%x , bResult =%d time out 1s !!!\n",
 					__func__, addr, efuseValue, bResult);
@@ -444,23 +421,19 @@ efuse_WordEnableDataRead(u8 word_en,
 						u8 *sourdata,
 						u8 *targetdata)
 {
-	if (!(word_en&BIT(0)))
-	{
+	if (!(word_en&BIT(0))) {
 		targetdata[0] = sourdata[0];
 		targetdata[1] = sourdata[1];
 	}
-	if (!(word_en&BIT(1)))
-	{
+	if (!(word_en&BIT(1))) {
 		targetdata[2] = sourdata[2];
 		targetdata[3] = sourdata[3];
 	}
-	if (!(word_en&BIT(2)))
-	{
+	if (!(word_en&BIT(2))) {
 		targetdata[4] = sourdata[4];
 		targetdata[5] = sourdata[5];
 	}
-	if (!(word_en&BIT(3)))
-	{
+	if (!(word_en&BIT(3))) {
 		targetdata[6] = sourdata[6];
 		targetdata[7] = sourdata[7];
 	}
@@ -607,18 +580,14 @@ void EFUSE_ShadowMapUpdate(
 
 	EFUSE_GetEfuseDefinition(padapter, efuseType, TYPE_EFUSE_MAP_LEN, (void *)&mapLen, bPseudoTest);
 
-	if (pEEPROM->bautoload_fail_flag == true)
-	{
+	if (pEEPROM->bautoload_fail_flag)
 		memset(pEEPROM->efuse_eeprom_data, 0xFF, mapLen);
-	}
 	else
-	{
 		Efuse_ReadAllMap(padapter, efuseType, pEEPROM->efuse_eeprom_data, bPseudoTest);
-	}
 
 	/* PlatformMoveMemory((void *)&pHalData->EfuseMap[EFUSE_MODIFY_MAP][0], */
 	/* void *)&pHalData->EfuseMap[EFUSE_INIT_MAP][0], mapLen); */
-}/*  EFUSE_ShadowMapUpdate */
+} /*  EFUSE_ShadowMapUpdate */
 
 
 /*-----------------------------------------------------------------------------
@@ -642,7 +611,7 @@ EFUSE_ShadowRead(
 	struct adapter *padapter,
 	u8 Type,
 	u16 	Offset,
-	u32 	*Value	)
+	u32 	*Value)
 {
 	if (Type == 1)
 		efuse_ShadowRead1Byte(padapter, Offset, (u8 *)Value);
@@ -651,4 +620,4 @@ EFUSE_ShadowRead(
 	else if (Type == 4)
 		efuse_ShadowRead4Byte(padapter, Offset, (u32 *)Value);
 
-}	// EFUSE_ShadowRead
+}	/* EFUSE_ShadowRead*/

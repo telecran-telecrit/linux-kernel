@@ -1,11 +1,11 @@
 config RTL8723BS
-	tristate "Realtek 8723B SDIO or SPI WiFi"
+	tristate "Realtek RTL8723BS SDIO Wireless LAN NIC driver"
+	depends on WLAN && MMC && CFG80211
+	depends on m
+	select WIRELESS_EXT
+	select WEXT_PRIV
 	---help---
-	  Help message of RTL8723BS
-
-config WLAN_SDIO
-	bool "Enable SDIO interface for Realtek"
-	depends on RTL8723AS || RTL8723BS
-	default n
-	---help---
-	  Use memory preallocated in platform
+	This option enables support for RTL8723BS SDIO drivers, such as
+	the wifi found on the 1st gen Intel Compute Stick, the CHIP
+	and many other Intel Atom and ARM based devices.
+	If built as a module, it will be called r8723bs.

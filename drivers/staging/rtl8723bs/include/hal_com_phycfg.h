@@ -1,15 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
  *
  ******************************************************************************/
 #ifndef __HAL_COM_PHYCFG_H__
@@ -185,7 +177,7 @@ u8 		Channel,
 	bool		*bIn24G
 	);
 
-s8 PHY_GetTxPowerLimit (struct adapter *adapter, u32 RegPwrTblSel,
+s8 phy_get_tx_pwr_lmt (struct adapter *adapter, u32 RegPwrTblSel,
 			enum BAND_TYPE Band, enum CHANNEL_WIDTH Bandwidth,
 u8 		RfPath,
 u8 		DataRate,
@@ -244,7 +236,6 @@ struct adapter *	Adapter,
 u16 			ChannelPlan
 	);
 
-#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 #define MAX_PARA_FILE_BUF_LEN	25600
 
 #define LOAD_MAC_PARA_FILE				BIT0
@@ -270,6 +261,5 @@ int PHY_ConfigRFWithTxPwrTrackParaFile(struct adapter *Adapter, char*pFileName);
 int PHY_ConfigRFWithPowerLimitTableParaFile(struct adapter *Adapter, char*pFileName);
 
 void phy_free_filebuf(struct adapter *padapter);
-#endif /* CONFIG_LOAD_PHY_PARA_FROM_FILE */
 
 #endif /* __HAL_COMMON_H__ */

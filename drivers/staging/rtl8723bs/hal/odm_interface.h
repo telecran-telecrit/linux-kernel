@@ -1,15 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
  *
  ******************************************************************************/
 
@@ -47,14 +39,13 @@ ODM_REG(DIG, _pDM_Odm)
 #define ODM_REG(_name, _pDM_Odm)	_cat(_name, _pDM_Odm->SupportICType, _reg)
 #define ODM_BIT(_name, _pDM_Odm)	_cat(_name, _pDM_Odm->SupportICType, _bit)
 
-typedef enum _ODM_H2C_CMD
-{
+typedef enum _ODM_H2C_CMD {
 	ODM_H2C_RSSI_REPORT = 0,
 	ODM_H2C_PSD_RESULT = 1,
 	ODM_H2C_PathDiv = 2,
 	ODM_H2C_WIFI_CALIBRATION = 3,
 	ODM_MAX_H2CCMD
-}ODM_H2C_CMD;
+} ODM_H2C_CMD;
 
 
 #endif	/*  __ODM_INTERFACE_H__ */

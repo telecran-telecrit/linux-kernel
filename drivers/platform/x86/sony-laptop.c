@@ -68,7 +68,8 @@
 #include <linux/poll.h>
 #include <linux/miscdevice.h>
 #endif
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
+#include <acpi/video.h>
 
 #define dprintk(fmt, ...)			\
 do {						\
@@ -135,13 +136,6 @@ MODULE_PARM_DESC(kbd_backlight_timeout,
 		 "meaningful values vary from 0 to 3 and their meaning depends "
 		 "on the model (default: no change from current value)");
 
-static int tablet_mode = 2;
-module_param(tablet_mode, int, 0);
-MODULE_PARM_DESC(tablet_mode,
-		 "set this if your laptop have different tablet mode value, "
-		 "default is 2 (Sony Vaio Fit multi-flip), "
-		 "only affects SW_TABLET_MODE events");
-
 #ifdef CONFIG_PM_SLEEP
 static void sony_nc_thermal_resume(void);
 #endif
@@ -188,11 +182,6 @@ static int sony_nc_touchpad_setup(struct platform_device *pd,
 				  unsigned int handle);
 static void sony_nc_touchpad_cleanup(struct platform_device *pd);
 
-static int sony_nc_tablet_mode_setup(struct platform_device *pd,
-				  unsigned int handle);
-static void sony_nc_tablet_mode_cleanup(struct platform_device *pd);
-static int sony_nc_tablet_mode_update(void);
-
 enum sony_nc_rfkill {
 	SONY_WIFI,
 	SONY_BLUETOOTH,
@@ -233,7 +222,7 @@ struct sony_laptop_keypress {
 /* Correspondance table between sonypi events
  * and input layer indexes in the keymap
  */
-static int sony_laptop_input_index[] = {
+static const int sony_laptop_input_index[] = {
 	-1,	/*  0 no event */
 	-1,	/*  1 SONYPI_EVENT_JOGDIAL_DOWN */
 	-1,	/*  2 SONYPI_EVENT_JOGDIAL_UP */
@@ -374,7 +363,7 @@ static int sony_laptop_input_keycode_map[] = {
 };
 
 /* release buttons after a short delay if pressed */
-static void do_sony_laptop_release_key(unsigned long unused)
+static void do_sony_laptop_release_key(struct timer_list *unused)
 {
 	struct sony_laptop_keypress kp;
 	unsigned long flags;
@@ -481,7 +470,7 @@ static int sony_laptop_setup_input(struct acpi_device *acpi_device)
 		goto err_dec_users;
 	}
 
-	setup_timer(&sony_laptop_input.release_key_timer,
+	timer_setup(&sony_laptop_input.release_key_timer,
 		    do_sony_laptop_release_key, 0);
 
 	/* input keys */
@@ -1209,13 +1198,14 @@ static int sony_nc_hotkeys_decode(u32 event, unsigned int handle)
 enum event_types {
 	HOTKEY = 1,
 	KILLSWITCH,
-	GFX_SWITCH,
-	TABLET_MODE_SWITCH
+	GFX_SWITCH
 };
 static void sony_nc_notify(struct acpi_device *device, u32 event)
 {
 	u32 real_ev = event;
 	u8 ev_type = 0;
+	int ret;
+
 	dprintk("sony_nc_notify, event: 0x%.2x\n", event);
 
 	if (event >= 0x90) {
@@ -1237,13 +1227,12 @@ static void sony_nc_notify(struct acpi_device *device, u32 event)
 		case 0x0100:
 		case 0x0127:
 			ev_type = HOTKEY;
-			real_ev = sony_nc_hotkeys_decode(event, handle);
+			ret = sony_nc_hotkeys_decode(event, handle);
 
-			if (real_ev > 0)
-				sony_laptop_report_input_event(real_ev);
-			else
-				/* restore the original event for reporting */
-				real_ev = event;
+			if (ret > 0) {
+				sony_laptop_report_input_event(ret);
+				real_ev = ret;
+			}
 
 			break;
 
@@ -1284,10 +1273,6 @@ static void sony_nc_notify(struct acpi_device *device, u32 event)
 			/* Hybrid GFX switching SVS151290S */
 			ev_type = GFX_SWITCH;
 			real_ev = __sony_nc_gfx_switch_status_get();
-			break;
-		case 0x016f:
-			ev_type = TABLET_MODE_SWITCH;
-			real_ev = sony_nc_tablet_mode_update();
 			break;
 		default:
 			dprintk("Unknown event 0x%x for handle 0x%x\n",
@@ -1408,6 +1393,7 @@ static void sony_nc_function_setup(struct acpi_device *device,
 		case 0x0143:
 		case 0x014b:
 		case 0x014c:
+		case 0x0153:
 		case 0x0163:
 			result = sony_nc_kbd_backlight_setup(pf_device, handle);
 			if (result)
@@ -1444,13 +1430,6 @@ static void sony_nc_function_setup(struct acpi_device *device,
 				pr_err("couldn't set up smart connect support (%d)\n",
 						result);
 			break;
-		case 0x016f:
-			/* laptop/presentation/tablet transformation for Sony Vaio Fit 11a/13a/14a/15a */
-			result = sony_nc_tablet_mode_setup(pf_device, handle);
-			if (result)
-				pr_err("couldn't set up tablet mode support (%d)\n",
-						result);
-			break;
 		default:
 			continue;
 		}
@@ -1466,6 +1445,9 @@ static void sony_nc_function_setup(struct acpi_device *device,
 static void sony_nc_function_cleanup(struct platform_device *pd)
 {
 	unsigned int i, result, bitmask, handle;
+
+	if (!handles)
+		return;
 
 	/* get enabled events and disable them */
 	sony_nc_int_call(sony_nc_acpi_handle, "SN01", NULL, &bitmask);
@@ -1512,6 +1494,7 @@ static void sony_nc_function_cleanup(struct platform_device *pd)
 		case 0x0143:
 		case 0x014b:
 		case 0x014c:
+		case 0x0153:
 		case 0x0163:
 			sony_nc_kbd_backlight_cleanup(pd, handle);
 			break;
@@ -1529,9 +1512,6 @@ static void sony_nc_function_cleanup(struct platform_device *pd)
 			break;
 		case 0x0168:
 			sony_nc_smart_conn_cleanup(pd);
-			break;
-		case 0x016f:
-			sony_nc_tablet_mode_cleanup(pd);
 			break;
 		default:
 			continue;
@@ -1572,12 +1552,6 @@ static void sony_nc_function_resume(void)
 		case 0x0124:
 		case 0x0135:
 			sony_nc_rfkill_update();
-			break;
-		case 0x016f:
-			/* re-enable transformation events */
-			sony_call_snc_handle(handle, 0, &result);
-			acpi_bus_generate_netlink_event(sony_nc_acpi_device->pnp.device_class,
-					dev_name(&sony_nc_acpi_device->dev), TABLET_MODE_SWITCH, sony_nc_tablet_mode_update());
 			break;
 		default:
 			continue;
@@ -1653,7 +1627,7 @@ static const struct rfkill_ops sony_rfkill_ops = {
 static int sony_nc_setup_rfkill(struct acpi_device *device,
 				enum sony_nc_rfkill nc_type)
 {
-	int err = 0;
+	int err;
 	struct rfkill *rfk;
 	enum rfkill_type type;
 	const char *name;
@@ -1686,17 +1660,19 @@ static int sony_nc_setup_rfkill(struct acpi_device *device,
 	if (!rfk)
 		return -ENOMEM;
 
-	if (sony_call_snc_handle(sony_rfkill_handle, 0x200, &result) < 0) {
+	err = sony_call_snc_handle(sony_rfkill_handle, 0x200, &result);
+	if (err < 0) {
 		rfkill_destroy(rfk);
-		return -1;
+		return err;
 	}
 	hwblock = !(result & 0x1);
 
-	if (sony_call_snc_handle(sony_rfkill_handle,
-				sony_rfkill_address[nc_type],
-				&result) < 0) {
+	err = sony_call_snc_handle(sony_rfkill_handle,
+				   sony_rfkill_address[nc_type],
+				   &result);
+	if (err < 0) {
 		rfkill_destroy(rfk);
-		return -1;
+		return err;
 	}
 	swblock = !(result & 0x2);
 
@@ -1804,6 +1780,7 @@ struct kbd_backlight {
 	unsigned int base;
 	unsigned int mode;
 	unsigned int timeout;
+	unsigned int has_timeout;
 	struct device_attribute mode_attr;
 	struct device_attribute timeout_attr;
 };
@@ -1908,6 +1885,8 @@ static int sony_nc_kbd_backlight_setup(struct platform_device *pd,
 		unsigned int handle)
 {
 	int result;
+	int probe_base = 0;
+	int ctl_base = 0;
 	int ret = 0;
 
 	if (kbdbl_ctl) {
@@ -1916,11 +1895,25 @@ static int sony_nc_kbd_backlight_setup(struct platform_device *pd,
 		return -EBUSY;
 	}
 
-	/* verify the kbd backlight presence, these handles are not used for
-	 * keyboard backlight only
+	/* verify the kbd backlight presence, some of these handles are not used
+	 * for keyboard backlight only
 	 */
-	ret = sony_call_snc_handle(handle, handle == 0x0137 ? 0x0B00 : 0x0100,
-			&result);
+	switch (handle) {
+	case 0x0153:
+		probe_base = 0x0;
+		ctl_base = 0x0;
+		break;
+	case 0x0137:
+		probe_base = 0x0B00;
+		ctl_base = 0x0C00;
+		break;
+	default:
+		probe_base = 0x0100;
+		ctl_base = 0x4000;
+		break;
+	}
+
+	ret = sony_call_snc_handle(handle, probe_base, &result);
 	if (ret)
 		return ret;
 
@@ -1937,10 +1930,9 @@ static int sony_nc_kbd_backlight_setup(struct platform_device *pd,
 	kbdbl_ctl->mode = kbd_backlight;
 	kbdbl_ctl->timeout = kbd_backlight_timeout;
 	kbdbl_ctl->handle = handle;
-	if (handle == 0x0137)
-		kbdbl_ctl->base = 0x0C00;
-	else
-		kbdbl_ctl->base = 0x4000;
+	kbdbl_ctl->base = ctl_base;
+	/* Some models do not allow timeout control */
+	kbdbl_ctl->has_timeout = handle != 0x0153;
 
 	sysfs_attr_init(&kbdbl_ctl->mode_attr.attr);
 	kbdbl_ctl->mode_attr.attr.name = "kbd_backlight";
@@ -1948,22 +1940,28 @@ static int sony_nc_kbd_backlight_setup(struct platform_device *pd,
 	kbdbl_ctl->mode_attr.show = sony_nc_kbd_backlight_mode_show;
 	kbdbl_ctl->mode_attr.store = sony_nc_kbd_backlight_mode_store;
 
-	sysfs_attr_init(&kbdbl_ctl->timeout_attr.attr);
-	kbdbl_ctl->timeout_attr.attr.name = "kbd_backlight_timeout";
-	kbdbl_ctl->timeout_attr.attr.mode = S_IRUGO | S_IWUSR;
-	kbdbl_ctl->timeout_attr.show = sony_nc_kbd_backlight_timeout_show;
-	kbdbl_ctl->timeout_attr.store = sony_nc_kbd_backlight_timeout_store;
-
 	ret = device_create_file(&pd->dev, &kbdbl_ctl->mode_attr);
 	if (ret)
 		goto outkzalloc;
 
-	ret = device_create_file(&pd->dev, &kbdbl_ctl->timeout_attr);
-	if (ret)
-		goto outmode;
-
 	__sony_nc_kbd_backlight_mode_set(kbdbl_ctl->mode);
-	__sony_nc_kbd_backlight_timeout_set(kbdbl_ctl->timeout);
+
+	if (kbdbl_ctl->has_timeout) {
+		sysfs_attr_init(&kbdbl_ctl->timeout_attr.attr);
+		kbdbl_ctl->timeout_attr.attr.name = "kbd_backlight_timeout";
+		kbdbl_ctl->timeout_attr.attr.mode = S_IRUGO | S_IWUSR;
+		kbdbl_ctl->timeout_attr.show =
+			sony_nc_kbd_backlight_timeout_show;
+		kbdbl_ctl->timeout_attr.store =
+			sony_nc_kbd_backlight_timeout_store;
+
+		ret = device_create_file(&pd->dev, &kbdbl_ctl->timeout_attr);
+		if (ret)
+			goto outmode;
+
+		__sony_nc_kbd_backlight_timeout_set(kbdbl_ctl->timeout);
+	}
+
 
 	return 0;
 
@@ -1980,7 +1978,8 @@ static void sony_nc_kbd_backlight_cleanup(struct platform_device *pd,
 {
 	if (kbdbl_ctl && handle == kbdbl_ctl->handle) {
 		device_remove_file(&pd->dev, &kbdbl_ctl->mode_attr);
-		device_remove_file(&pd->dev, &kbdbl_ctl->timeout_attr);
+		if (kbdbl_ctl->has_timeout)
+			device_remove_file(&pd->dev, &kbdbl_ctl->timeout_attr);
 		kfree(kbdbl_ctl);
 		kbdbl_ctl = NULL;
 	}
@@ -3176,100 +3175,6 @@ static void sony_nc_backlight_cleanup(void)
 	backlight_device_unregister(sony_bl_props.dev);
 }
 
-/* laptop/presentation/tablet mode for Sony Vaio Fit 11a/13a/14a/15a */
-struct snc_tablet_control {
-	struct device_attribute attr;
-	int handle;
-	int mode;
-};
-static struct snc_tablet_control *tablet_ctl;
-
-static ssize_t sony_nc_tablet_mode_show(struct device *dev,
-					struct device_attribute *attr,
-					char *buffer)
-{
-	if(!tablet_ctl)
-		return -EIO;
-
-	return snprintf(buffer, PAGE_SIZE, "%d\n", tablet_ctl->mode);
-}
-
-static int sony_nc_tablet_mode_update(void) {
-	struct input_dev *key_dev = sony_laptop_input.key_dev;
-
-	if (!key_dev)
-		return -1;
-
-	if (!tablet_ctl)
-		return -1;
-
-	if (sony_call_snc_handle(tablet_ctl->handle, 0x0200, &tablet_ctl->mode))
-		return -1;
-
-	input_report_switch(key_dev, SW_TABLET_MODE, tablet_ctl->mode == tablet_mode);
-	input_sync(key_dev);
-
-	sysfs_notify(&sony_pf_device->dev.kobj, NULL, "tablet");
-
-	return tablet_ctl->mode;
-}
-
-static int sony_nc_tablet_mode_setup(struct platform_device *pd,
-					unsigned int handle)
-{
-	struct input_dev *key_dev = sony_laptop_input.key_dev;
-	int value, ret;
-
-	if (tablet_ctl) {
-		pr_warn("handle 0x%.4x: laptop/presentation/tablet mode control setup already done for 0x%.4x\n",
-				handle, tablet_ctl->handle);
-		return -EBUSY;
-	}
-
-	if (sony_call_snc_handle(handle, 0x0000, &value))
-		return -EIO;
-
-	tablet_ctl = kzalloc(sizeof(*tablet_ctl), GFP_KERNEL);
-	if (!tablet_ctl)
-		return -ENOMEM;
-
-	tablet_ctl->handle = handle;
-	sony_call_snc_handle(tablet_ctl->handle, 0x0200, &tablet_ctl->mode);
-
-	sysfs_attr_init(&tablet_ctl->attr.attr);
-	tablet_ctl->attr.attr.name = "tablet";
-	tablet_ctl->attr.attr.mode = S_IRUGO;
-	tablet_ctl->attr.show = sony_nc_tablet_mode_show;
-	tablet_ctl->attr.store = NULL;
-
-	if (key_dev)
-		input_set_capability(key_dev, EV_SW, SW_TABLET_MODE);
-
-	ret = device_create_file(&pd->dev, &tablet_ctl->attr);
-	if (ret)
-		goto tablet_error;
-	return 0;
-
-tablet_error:
-	device_remove_file(&pd->dev, &tablet_ctl->attr);
-	kfree(tablet_ctl);
-	tablet_ctl = NULL;
-	sony_call_snc_handle(handle, 0x0100, &value);
-	return ret;
-}
-
-static void sony_nc_tablet_mode_cleanup(struct platform_device *pd)
-{
-	int value;
-
-	if(tablet_ctl) {
-		device_remove_file(&pd->dev, &tablet_ctl->attr);
-		sony_call_snc_handle(tablet_ctl->handle, 0x0100, &value);
-		kfree(tablet_ctl);
-		tablet_ctl = NULL;
-	}
-}
-
 static int sony_nc_add(struct acpi_device *device)
 {
 	acpi_status status;
@@ -3325,12 +3230,8 @@ static int sony_nc_add(struct acpi_device *device)
 			sony_nc_function_setup(device, sony_pf_device);
 	}
 
-	/* setup input devices and helper fifo */
-	if (acpi_video_backlight_support()) {
-		pr_info("brightness ignored, must be controlled by ACPI video driver\n");
-	} else {
+	if (acpi_video_get_backlight_type() == acpi_backlight_vendor)
 		sony_nc_backlight_setup();
-	}
 
 	/* create sony_pf sysfs attributes related to the SNC device */
 	for (item = sony_nc_values; item->name; ++item) {
@@ -4133,7 +4034,7 @@ static struct attribute *spic_attributes[] = {
 	NULL
 };
 
-static struct attribute_group spic_attribute_group = {
+static const struct attribute_group spic_attribute_group = {
 	.attrs = spic_attributes
 };
 
@@ -4217,17 +4118,17 @@ static ssize_t sonypi_misc_read(struct file *file, char __user *buf,
 
 	if (ret > 0) {
 		struct inode *inode = file_inode(file);
-		inode->i_atime = current_fs_time(inode->i_sb);
+		inode->i_atime = current_time(inode);
 	}
 
 	return ret;
 }
 
-static unsigned int sonypi_misc_poll(struct file *file, poll_table *wait)
+static __poll_t sonypi_misc_poll(struct file *file, poll_table *wait)
 {
 	poll_wait(file, &sonypi_compat.fifo_proc_list, wait);
 	if (kfifo_len(&sonypi_compat.fifo))
-		return POLLIN | POLLRDNORM;
+		return EPOLLIN | EPOLLRDNORM;
 	return 0;
 }
 
@@ -4981,7 +4882,7 @@ static struct acpi_driver sony_pic_driver = {
 	.drv.pm = &sony_pic_pm,
 };
 
-static struct dmi_system_id __initdata sonypi_dmi_table[] = {
+static const struct dmi_system_id sonypi_dmi_table[] __initconst = {
 	{
 		.ident = "Sony Vaio",
 		.matches = {

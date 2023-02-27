@@ -24,12 +24,12 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 
-#include <demux.h>
-#include <dmxdev.h>
-#include <dvb_demux.h>
-#include <dvb_frontend.h>
-#include <dvb_net.h>
-#include <dvbdev.h>
+#include <media/demux.h>
+#include <media/dmxdev.h>
+#include <media/dvb_demux.h>
+#include <media/dvb_frontend.h>
+#include <media/dvb_net.h>
+#include <media/dvbdev.h>
 
 struct firedtv_tuner_status {
 	unsigned active_system:8;
@@ -99,8 +99,8 @@ struct firedtv {
 	s8			isochannel;
 	struct fdtv_ir_context	*ir_context;
 
-	fe_sec_voltage_t	voltage;
-	fe_sec_tone_mode_t	tone;
+	enum fe_sec_voltage	voltage;
+	enum fe_sec_tone_mode	tone;
 
 	struct mutex		demux_mutex;
 	unsigned long		channel_active;

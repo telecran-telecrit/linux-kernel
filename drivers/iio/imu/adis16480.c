@@ -110,6 +110,10 @@
 struct adis16480_chip_info {
 	unsigned int num_channels;
 	const struct iio_chan_spec *channels;
+	unsigned int gyro_max_val;
+	unsigned int gyro_max_scale;
+	unsigned int accel_max_val;
+	unsigned int accel_max_scale;
 };
 
 struct adis16480 {
@@ -190,7 +194,7 @@ static int adis16480_show_serial_number(void *arg, u64 *val)
 
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(adis16480_serial_number_fops,
+DEFINE_DEBUGFS_ATTRIBUTE(adis16480_serial_number_fops,
 	adis16480_show_serial_number, NULL, "0x%.4llx\n");
 
 static int adis16480_show_product_id(void *arg, u64 *val)
@@ -208,7 +212,7 @@ static int adis16480_show_product_id(void *arg, u64 *val)
 
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(adis16480_product_id_fops,
+DEFINE_DEBUGFS_ATTRIBUTE(adis16480_product_id_fops,
 	adis16480_show_product_id, NULL, "%llu\n");
 
 static int adis16480_show_flash_count(void *arg, u64 *val)
@@ -226,24 +230,28 @@ static int adis16480_show_flash_count(void *arg, u64 *val)
 
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(adis16480_flash_count_fops,
+DEFINE_DEBUGFS_ATTRIBUTE(adis16480_flash_count_fops,
 	adis16480_show_flash_count, NULL, "%lld\n");
 
 static int adis16480_debugfs_init(struct iio_dev *indio_dev)
 {
 	struct adis16480 *adis16480 = iio_priv(indio_dev);
 
-	debugfs_create_file("firmware_revision", 0400,
+	debugfs_create_file_unsafe("firmware_revision", 0400,
 		indio_dev->debugfs_dentry, adis16480,
 		&adis16480_firmware_revision_fops);
-	debugfs_create_file("firmware_date", 0400, indio_dev->debugfs_dentry,
-		adis16480, &adis16480_firmware_date_fops);
-	debugfs_create_file("serial_number", 0400, indio_dev->debugfs_dentry,
-		adis16480, &adis16480_serial_number_fops);
-	debugfs_create_file("product_id", 0400, indio_dev->debugfs_dentry,
-		adis16480, &adis16480_product_id_fops);
-	debugfs_create_file("flash_count", 0400, indio_dev->debugfs_dentry,
-		adis16480, &adis16480_flash_count_fops);
+	debugfs_create_file_unsafe("firmware_date", 0400,
+		indio_dev->debugfs_dentry, adis16480,
+		&adis16480_firmware_date_fops);
+	debugfs_create_file_unsafe("serial_number", 0400,
+		indio_dev->debugfs_dentry, adis16480,
+		&adis16480_serial_number_fops);
+	debugfs_create_file_unsafe("product_id", 0400,
+		indio_dev->debugfs_dentry, adis16480,
+		&adis16480_product_id_fops);
+	debugfs_create_file_unsafe("flash_count", 0400,
+		indio_dev->debugfs_dentry, adis16480,
+		&adis16480_flash_count_fops);
 
 	return 0;
 }
@@ -497,19 +505,21 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 static int adis16480_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
 {
+	struct adis16480 *st = iio_priv(indio_dev);
+
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		return adis_single_conversion(indio_dev, chan, 0, val);
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_ANGL_VEL:
-			*val = 0;
-			*val2 = IIO_DEGREE_TO_RAD(20000); /* 0.02 degree/sec */
-			return IIO_VAL_INT_PLUS_MICRO;
+			*val = st->chip_info->gyro_max_scale;
+			*val2 = st->chip_info->gyro_max_val;
+			return IIO_VAL_FRACTIONAL;
 		case IIO_ACCEL:
-			*val = 0;
-			*val2 = IIO_G_TO_M_S_2(800); /* 0.8 mg */
-			return IIO_VAL_INT_PLUS_MICRO;
+			*val = st->chip_info->accel_max_scale;
+			*val2 = st->chip_info->accel_max_val;
+			return IIO_VAL_FRACTIONAL;
 		case IIO_MAGN:
 			*val = 0;
 			*val2 = 100; /* 0.0001 gauss */
@@ -674,18 +684,39 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 	[ADIS16375] = {
 		.channels = adis16485_channels,
 		.num_channels = ARRAY_SIZE(adis16485_channels),
+		/*
+		 * storing the value in rad/degree and the scale in degree
+		 * gives us the result in rad and better precession than
+		 * storing the scale directly in rad.
+		 */
+		.gyro_max_val = IIO_RAD_TO_DEGREE(22887),
+		.gyro_max_scale = 300,
+		.accel_max_val = IIO_M_S_2_TO_G(21973),
+		.accel_max_scale = 18,
 	},
 	[ADIS16480] = {
 		.channels = adis16480_channels,
 		.num_channels = ARRAY_SIZE(adis16480_channels),
+		.gyro_max_val = IIO_RAD_TO_DEGREE(22500),
+		.gyro_max_scale = 450,
+		.accel_max_val = IIO_M_S_2_TO_G(12500),
+		.accel_max_scale = 10,
 	},
 	[ADIS16485] = {
 		.channels = adis16485_channels,
 		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.gyro_max_val = IIO_RAD_TO_DEGREE(22500),
+		.gyro_max_scale = 450,
+		.accel_max_val = IIO_M_S_2_TO_G(20000),
+		.accel_max_scale = 5,
 	},
 	[ADIS16488] = {
 		.channels = adis16480_channels,
 		.num_channels = ARRAY_SIZE(adis16480_channels),
+		.gyro_max_val = IIO_RAD_TO_DEGREE(22500),
+		.gyro_max_scale = 450,
+		.accel_max_val = IIO_M_S_2_TO_G(22500),
+		.accel_max_scale = 18,
 	},
 };
 
@@ -693,7 +724,6 @@ static const struct iio_info adis16480_info = {
 	.read_raw = &adis16480_read_raw,
 	.write_raw = &adis16480_write_raw,
 	.update_scan_mode = adis_update_scan_mode,
-	.driver_module = THIS_MODULE,
 };
 
 static int adis16480_stop_device(struct iio_dev *indio_dev)
@@ -738,7 +768,9 @@ static int adis16480_initial_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	sscanf(indio_dev->name, "adis%u\n", &device_id);
+	ret = sscanf(indio_dev->name, "adis%u\n", &device_id);
+	if (ret != 1)
+		return -EINVAL;
 
 	if (prod_id != device_id)
 		dev_warn(&indio_dev->dev, "Device ID(%u) and product ID(%u) do not match.",
@@ -869,7 +901,6 @@ MODULE_DEVICE_TABLE(spi, adis16480_ids);
 static struct spi_driver adis16480_driver = {
 	.driver = {
 		.name = "adis16480",
-		.owner = THIS_MODULE,
 	},
 	.id_table = adis16480_ids,
 	.probe = adis16480_probe,

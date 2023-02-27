@@ -1,15 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
  *
  ******************************************************************************/
 #ifndef __RTW_DEBUG_H__
@@ -206,7 +198,7 @@
 
 #endif /* defined(_dbgdump) */
 
-#ifdef CONFIG_DEBUG
+#ifdef DEBUG
 #if	defined(_dbgdump)
 	#undef DBG_871X
 	#define DBG_871X(...)     do {\
@@ -223,9 +215,9 @@
 		_dbgdump(DRIVER_PREFIX __VA_ARGS__);\
 	}while (0)
 #endif /* defined(_dbgdump) */
-#endif /* CONFIG_DEBUG */
+#endif /* DEBUG */
 
-#ifdef CONFIG_DEBUG_RTL871X
+#ifdef DEBUG_RTL871X
 
 #if	defined(_dbgdump) && defined(_MODULE_DEFINE_)
 
@@ -258,12 +250,12 @@
 			_dbgdump("\n");							\
 		}
 #endif /* defined(_dbgdump) */
-#endif /* CONFIG_DEBUG_RTL871X */
+#endif /* DEBUG_RTL871X */
 
 #ifdef CONFIG_DBG_COUNTER
 #define DBG_COUNTER(counter) counter++
 #else
-#define DBG_COUNTER(counter)
+#define DBG_COUNTER(counter) do {} while (0)
 #endif
 
 void dump_drv_version(void *sel);
@@ -275,7 +267,7 @@ void mac_reg_dump(void *sel, struct adapter *adapter);
 void bb_reg_dump(void *sel, struct adapter *adapter);
 void rf_reg_dump(void *sel, struct adapter *adapter);
 
-#ifdef CONFIG_PROC_DEBUG
+#ifdef PROC_DEBUG
 ssize_t proc_set_write_reg(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 int proc_get_read_reg(struct seq_file *m, void *v);
 ssize_t proc_set_read_reg(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
@@ -350,6 +342,6 @@ int proc_get_tx_logs(struct seq_file *m, void *v);
 int proc_get_int_logs(struct seq_file *m, void *v);
 #endif
 
-#endif /* CONFIG_PROC_DEBUG */
+#endif /* PROC_DEBUG */
 
 #endif	/* __RTW_DEBUG_H__ */

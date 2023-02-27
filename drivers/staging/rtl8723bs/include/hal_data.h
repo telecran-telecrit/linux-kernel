@@ -1,15 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
  *
  ******************************************************************************/
 #ifndef __HAL_DATA_H__
@@ -449,7 +441,6 @@ struct hal_com_data {
 	u32 		SysIntrMask;
 
 
-#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 	char para_file_buf[MAX_PARA_FILE_BUF_LEN];
 	char *mac_reg;
 	u32 mac_reg_len;
@@ -469,7 +460,6 @@ struct hal_com_data {
 	u32 rf_tx_pwr_track_len;
 	char *rf_tx_pwr_lmt;
 	u32 rf_tx_pwr_lmt_len;
-#endif
 
 #ifdef CONFIG_BACKGROUND_NOISE_MONITOR
 	s16 noise[ODM_MAX_CHANNEL_NUM];

@@ -184,7 +184,6 @@ static inline void pm_qos_set_value(struct pm_qos_constraints *c, s32 value)
 	c->target_value = value;
 }
 
-static inline int pm_qos_get_value(struct pm_qos_constraints *c);
 static int pm_qos_dbg_show_requests(struct seq_file *s, void *unused)
 {
 	struct pm_qos_object *qos = (struct pm_qos_object *)s->private;
@@ -295,6 +294,7 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 		 * changed
 		 */
 		plist_del(node, &c->list);
+		/* fall through */
 	case PM_QOS_ADD_REQ:
 		plist_node_init(node, new_value);
 		plist_add(node, &c->list);
@@ -367,6 +367,7 @@ bool pm_qos_update_flags(struct pm_qos_flags *pqf,
 		break;
 	case PM_QOS_UPDATE_REQ:
 		pm_qos_flags_remove_req(pqf, req);
+		/* fall through */
 	case PM_QOS_ADD_REQ:
 		req->flags = val;
 		INIT_LIST_HEAD(&req->node);
@@ -515,26 +516,6 @@ void pm_qos_update_request_timeout(struct pm_qos_request *req, s32 new_value,
 
 	schedule_delayed_work(&req->work, usecs_to_jiffies(timeout_us));
 }
-
-/**
- * pm_qos_cancel_request_lazy - cancels an existing qos request lazily.
- * @req : handle to list element holding a pm_qos request to use
- * @timeout_us: the delay before cancelling this qos request in usecs.
- *
- * After timeout_us, this qos request is cancelled.
- */
-void pm_qos_cancel_request_lazy(struct pm_qos_request *req,
-				unsigned int timeout_us)
-{
-	if (!req)
-		return;
-	if (WARN(!pm_qos_request_active(req),
-		 "%s called for unknown object.", __func__))
-		return;
-
-	schedule_delayed_work(&req->work, usecs_to_jiffies(timeout_us));
-}
-EXPORT_SYMBOL_GPL(pm_qos_cancel_request_lazy);
 
 /**
  * pm_qos_remove_request - modifies an existing qos request
@@ -721,8 +702,8 @@ static int __init pm_qos_power_init(void)
 	for (i = PM_QOS_CPU_DMA_LATENCY; i < PM_QOS_NUM_CLASSES; i++) {
 		ret = register_pm_qos_misc(pm_qos_array[i], d);
 		if (ret < 0) {
-			printk(KERN_ERR "pm_qos_param: %s setup failed\n",
-			       pm_qos_array[i]->name);
+			pr_err("%s: %s setup failed\n",
+			       __func__, pm_qos_array[i]->name);
 			return ret;
 		}
 	}

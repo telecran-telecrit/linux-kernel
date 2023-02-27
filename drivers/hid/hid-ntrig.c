@@ -173,7 +173,7 @@ static ssize_t show_phys_width(struct device *dev,
 			       struct device_attribute *attr,
 			       char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->sensor_physical_width);
@@ -185,7 +185,7 @@ static ssize_t show_phys_height(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->sensor_physical_height);
@@ -197,7 +197,7 @@ static ssize_t show_log_width(struct device *dev,
 			      struct device_attribute *attr,
 			      char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->sensor_logical_width);
@@ -209,7 +209,7 @@ static ssize_t show_log_height(struct device *dev,
 			       struct device_attribute *attr,
 			       char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->sensor_logical_height);
@@ -221,7 +221,7 @@ static ssize_t show_min_width(struct device *dev,
 			      struct device_attribute *attr,
 			      char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->min_width *
@@ -233,7 +233,7 @@ static ssize_t set_min_width(struct device *dev,
 			     struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	unsigned long val;
@@ -256,7 +256,7 @@ static ssize_t show_min_height(struct device *dev,
 			       struct device_attribute *attr,
 			       char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->min_height *
@@ -268,7 +268,7 @@ static ssize_t set_min_height(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	unsigned long val;
@@ -292,7 +292,7 @@ static ssize_t show_activate_slack(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->activate_slack);
@@ -302,7 +302,7 @@ static ssize_t set_activate_slack(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t count)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	unsigned long val;
@@ -325,7 +325,7 @@ static ssize_t show_activation_width(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->activation_width *
@@ -337,7 +337,7 @@ static ssize_t set_activation_width(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	unsigned long val;
@@ -361,7 +361,7 @@ static ssize_t show_activation_height(struct device *dev,
 				      struct device_attribute *attr,
 				      char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", nd->activation_height *
@@ -373,7 +373,7 @@ static ssize_t set_activation_height(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	unsigned long val;
@@ -397,7 +397,7 @@ static ssize_t show_deactivate_slack(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	return sprintf(buf, "%d\n", -nd->deactivate_slack);
@@ -407,7 +407,7 @@ static ssize_t set_deactivate_slack(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct hid_device *hdev = to_hid_device(dev);
 	struct ntrig_data *nd = hid_get_drvdata(hdev);
 
 	unsigned long val;
@@ -445,7 +445,7 @@ static struct attribute *sysfs_attrs[] = {
 	NULL
 };
 
-static struct attribute_group ntrig_attribute_group = {
+static const struct attribute_group ntrig_attribute_group = {
 	.attrs = sysfs_attrs
 };
 
@@ -591,8 +591,8 @@ static int ntrig_event (struct hid_device *hid, struct hid_field *field,
 	switch (usage->hid) {
 	case 0xff000001:
 		/* Tag indicating the start of a multitouch group */
-		nd->reading_mt = 1;
-		nd->first_contact_touch = 0;
+		nd->reading_mt = true;
+		nd->first_contact_touch = false;
 		break;
 	case HID_DG_TIPSWITCH:
 		nd->tipswitch = value;
@@ -663,7 +663,7 @@ static int ntrig_event (struct hid_device *hid, struct hid_field *field,
 			 * even if deactivation slack is turned off.
 			 */
 			nd->act_state = deactivate_slack - 1;
-			nd->confidence = 0;
+			nd->confidence = false;
 			break;
 		}
 
@@ -679,7 +679,7 @@ static int ntrig_event (struct hid_device *hid, struct hid_field *field,
 			 */
 			if (nd->w < nd->min_width ||
 			    nd->h < nd->min_height)
-				nd->confidence = 0;
+				nd->confidence = false;
 		} else
 			break;
 
@@ -758,7 +758,7 @@ static int ntrig_event (struct hid_device *hid, struct hid_field *field,
 		if (!nd->reading_mt) /* Just to be sure */
 			break;
 
-		nd->reading_mt = 0;
+		nd->reading_mt = false;
 
 
 		/*
@@ -859,12 +859,45 @@ not_claimed_input:
 	return 1;
 }
 
+static int ntrig_input_configured(struct hid_device *hid,
+		struct hid_input *hidinput)
+
+{
+	struct input_dev *input = hidinput->input;
+
+	if (hidinput->report->maxfield < 1)
+		return 0;
+
+	switch (hidinput->report->field[0]->application) {
+	case HID_DG_PEN:
+		input->name = "N-Trig Pen";
+		break;
+	case HID_DG_TOUCHSCREEN:
+		/* These keys are redundant for fingers, clear them
+		 * to prevent incorrect identification */
+		__clear_bit(BTN_TOOL_PEN, input->keybit);
+		__clear_bit(BTN_TOOL_FINGER, input->keybit);
+		__clear_bit(BTN_0, input->keybit);
+		__set_bit(BTN_TOOL_DOUBLETAP, input->keybit);
+		/*
+		 * The physical touchscreen (single touch)
+		 * input has a value for physical, whereas
+		 * the multitouch only has logical input
+		 * fields.
+		 */
+		input->name = (hidinput->report->field[0]->physical) ?
+							"N-Trig Touchscreen" :
+							"N-Trig MultiTouch";
+		break;
+	}
+
+	return 0;
+}
+
 static int ntrig_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	int ret;
 	struct ntrig_data *nd;
-	struct hid_input *hidinput;
-	struct input_dev *input;
 	struct hid_report *report;
 
 	if (id->driver_data)
@@ -877,16 +910,16 @@ static int ntrig_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		return -ENOMEM;
 	}
 
-	nd->reading_mt = 0;
+	nd->reading_mt = false;
 	nd->min_width = 0;
 	nd->min_height = 0;
 	nd->activate_slack = activate_slack;
 	nd->act_state = activate_slack;
 	nd->deactivate_slack = -deactivate_slack;
-	nd->sensor_logical_width = 0;
-	nd->sensor_logical_height = 0;
-	nd->sensor_physical_width = 0;
-	nd->sensor_physical_height = 0;
+	nd->sensor_logical_width = 1;
+	nd->sensor_logical_height = 1;
+	nd->sensor_physical_width = 1;
+	nd->sensor_physical_height = 1;
 
 	hid_set_drvdata(hdev, nd);
 
@@ -900,38 +933,6 @@ static int ntrig_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	if (ret) {
 		hid_err(hdev, "hw start failed\n");
 		goto err_free;
-	}
-
-
-	list_for_each_entry(hidinput, &hdev->inputs, list) {
-		if (hidinput->report->maxfield < 1)
-			continue;
-
-		input = hidinput->input;
-		switch (hidinput->report->field[0]->application) {
-		case HID_DG_PEN:
-			input->name = "N-Trig Pen";
-			break;
-		case HID_DG_TOUCHSCREEN:
-			/* These keys are redundant for fingers, clear them
-			 * to prevent incorrect identification */
-			__clear_bit(BTN_TOOL_PEN, input->keybit);
-			__clear_bit(BTN_TOOL_FINGER, input->keybit);
-			__clear_bit(BTN_0, input->keybit);
-			__set_bit(BTN_TOOL_DOUBLETAP, input->keybit);
-			/*
-			 * The physical touchscreen (single touch)
-			 * input has a value for physical, whereas
-			 * the multitouch only has logical input
-			 * fields.
-			 */
-			input->name =
-				(hidinput->report->field[0]
-				 ->physical) ?
-				"N-Trig Touchscreen" :
-				"N-Trig MultiTouch";
-			break;
-		}
 	}
 
 	/* This is needed for devices with more recent firmware versions */
@@ -954,6 +955,8 @@ static int ntrig_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 	ret = sysfs_create_group(&hdev->dev.kobj,
 			&ntrig_attribute_group);
+	if (ret)
+		hid_err(hdev, "cannot create sysfs group\n");
 
 	return 0;
 err_free:
@@ -1024,6 +1027,7 @@ static struct hid_driver ntrig_driver = {
 	.remove = ntrig_remove,
 	.input_mapping = ntrig_input_mapping,
 	.input_mapped = ntrig_input_mapped,
+	.input_configured = ntrig_input_configured,
 	.usage_table = ntrig_grabbed_usages,
 	.event = ntrig_event,
 };

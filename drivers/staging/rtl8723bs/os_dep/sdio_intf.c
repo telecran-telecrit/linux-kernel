@@ -1,15 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
  *
  ******************************************************************************/
 #define _HCI_INTF_C_
@@ -24,14 +16,19 @@
 
 static const struct sdio_device_id sdio_ids[] =
 {
-//	{ SDIO_DEVICE(0x024c, 0xB723), },
-//	{ SDIO_DEVICE(0x024c, 0x0523), },
-//	{ SDIO_DEVICE(0x024c, 0x0623), },
-	{ SDIO_DEVICE_CLASS(SDIO_CLASS_WLAN) },
+	{ SDIO_DEVICE(0x024c, 0x0523), },
+	{ SDIO_DEVICE(0x024c, 0x0623), },
+	{ SDIO_DEVICE(0x024c, 0x0626), },
+	{ SDIO_DEVICE(0x024c, 0xb723), },
 	{ /* end: all zeroes */				},
+};
+static const struct acpi_device_id acpi_ids[] = {
+	{"OBDA8723", 0x0000},
+	{}
 };
 
 MODULE_DEVICE_TABLE(sdio, sdio_ids);
+MODULE_DEVICE_TABLE(acpi, acpi_ids);
 
 static int rtw_drv_init(struct sdio_func *func, const struct sdio_device_id *id);
 static void rtw_dev_remove(struct sdio_func *func);
@@ -133,7 +130,7 @@ static void sdio_free_irq(struct dvobj_priv *dvobj)
 extern unsigned int oob_irq;
 static irqreturn_t gpio_hostwakeup_irq_thread(int irq, void *data)
 {
-	struct adapter *padapter = (struct adapter *)data;
+	struct adapter *padapter = data;
 	DBG_871X_LEVEL(_drv_always_, "gpio_hostwakeup_irq_thread\n");
 	/* Disable interrupt before calling handler */
 	/* disable_irq_nosync(oob_irq); */
@@ -253,7 +250,8 @@ static struct dvobj_priv *sdio_dvobj_init(struct sdio_func *func)
 	struct dvobj_priv *dvobj = NULL;
 	PSDIO_DATA psdio;
 
-	if ((dvobj = devobj_init()) == NULL) {
+	dvobj = devobj_init();
+	if (dvobj == NULL) {
 		goto exit;
 	}
 
@@ -329,8 +327,10 @@ static struct adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj, const struct 
 	int status = _FAIL;
 	struct net_device *pnetdev;
 	struct adapter *padapter = NULL;
+	PSDIO_DATA psdio = &dvobj->intf_data;
 
-	if ((padapter = (struct adapter *)vzalloc(sizeof(*padapter))) == NULL) {
+	padapter = vzalloc(sizeof(*padapter));
+	if (padapter == NULL) {
 		goto exit;
 	}
 
@@ -393,7 +393,7 @@ static struct adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj, const struct 
 
 	/* 3 8. get WLan MAC address */
 	/*  set mac addr */
-	rtw_macaddr_cfg(padapter->eeprompriv.mac_addr);
+	rtw_macaddr_cfg(&psdio->func->dev, padapter->eeprompriv.mac_addr);
 
 	rtw_hal_disable_interrupt(padapter);
 
@@ -475,36 +475,21 @@ static int rtw_drv_init(
 	struct adapter *if1 = NULL, *if2 = NULL;
 	struct dvobj_priv *dvobj;
 
-	switch (func->vendor) {
-	case 0x024c:
-		switch (func->device) {
-		case 0x0523:
-		case 0x0623:
-		case 0xb723:
-			break;
-		default:
-			pr_info("RTL8723BS: Found unrecognized vendor 0x%x, device 0x%x\n",
-				func->vendor, func->device);
-			goto exit;
-		}
-		break;
-	default:
-		pr_info("RTL8723BS: Found unrecognized vendor 0x%x, device 0x%x\n",
-			func->vendor, func->device);
-		goto exit;
-	}
-	if ((dvobj = sdio_dvobj_init(func)) == NULL) {
+	dvobj = sdio_dvobj_init(func);
+	if (dvobj == NULL) {
 		RT_TRACE(_module_hci_intfs_c_, _drv_err_, ("initialize device object priv Failed!\n"));
 		goto exit;
 	}
 
-	if ((if1 = rtw_sdio_if1_init(dvobj, id)) == NULL) {
+	if1 = rtw_sdio_if1_init(dvobj, id);
+	if (if1 == NULL) {
 		DBG_871X("rtw_init_primarystruct adapter Failed!\n");
 		goto free_dvobj;
 	}
 
 	/* dev_alloc_name && register_netdev */
-	if ((status = rtw_drv_register_netdev(if1)) != _SUCCESS) {
+	status = rtw_drv_register_netdev(if1);
+	if (status != _SUCCESS) {
 		goto free_if2;
 	}
 
@@ -583,46 +568,23 @@ static int rtw_sdio_suspend(struct device *dev)
 	struct pwrctrl_priv *pwrpriv = dvobj_to_pwrctl(psdpriv);
 	struct adapter *padapter = psdpriv->if1;
 	struct debug_priv *pdbgpriv = &psdpriv->drv_dbg;
-	int ret = 0;
 
 	if (padapter->bDriverStopped == true)
 	{
 		DBG_871X("%s bDriverStopped = %d\n", __func__, padapter->bDriverStopped);
-		goto exit;
+		return 0;
 	}
 
 	if (pwrpriv->bInSuspend == true)
 	{
 		DBG_871X("%s bInSuspend = %d\n", __func__, pwrpriv->bInSuspend);
 		pdbgpriv->dbg_suspend_error_cnt++;
-		goto exit;
+		return 0;
 	}
 
-	ret = rtw_suspend_common(padapter);
-
-exit:
-#ifdef CONFIG_RTW_SDIO_PM_KEEP_POWER
-	/* Android 4.0 don't support WIFI close power */
-	/* or power down or clock will close after wifi resume, */
-	/* this is sprd's bug in Android 4.0, but sprd don't */
-	/* want to fix it. */
-	/* we have test power under 8723as, power consumption is ok */
-	if (func) {
-		mmc_pm_flag_t pm_flag = 0;
-		pm_flag = sdio_get_host_pm_caps(func);
-		DBG_871X("cmd: %s: suspend: PM flag = 0x%x\n", sdio_func_id(func), pm_flag);
-		if (!(pm_flag & MMC_PM_KEEP_POWER)) {
-			DBG_871X("%s: cannot remain alive while host is suspended\n", sdio_func_id(func));
-			pdbgpriv->dbg_suspend_error_cnt++;
-			return -ENOSYS;
-		} else {
-			DBG_871X("cmd: suspend with MMC_PM_KEEP_POWER\n");
-			sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
-		}
-	}
-#endif
-	return ret;
+	return rtw_suspend_common(padapter);
 }
+
 static int rtw_resume_process(struct adapter *padapter)
 {
 	struct pwrctrl_priv *pwrpriv = adapter_to_pwrctl(padapter);
@@ -643,7 +605,6 @@ static int rtw_sdio_resume(struct device *dev)
 {
 	struct sdio_func *func =dev_to_sdio_func(dev);
 	struct dvobj_priv *psdpriv = sdio_get_drvdata(func);
-	struct pwrctrl_priv *pwrpriv = dvobj_to_pwrctl(psdpriv);
 	struct adapter *padapter = psdpriv->if1;
 	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
 	int ret = 0;
@@ -653,25 +614,11 @@ static int rtw_sdio_resume(struct device *dev)
 
 	pdbgpriv->dbg_resume_cnt++;
 
-	if (pwrpriv->bInternalAutoSuspend)
-	{
-		ret = rtw_resume_process(padapter);
-	}
-	else
-	{
-		if (pwrpriv->wowlan_mode || pwrpriv->wowlan_ap_mode)
-		{
-			ret = rtw_resume_process(padapter);
-		}
-		else
-		{
-			ret = rtw_resume_process(padapter);
-		}
-	}
+	ret = rtw_resume_process(padapter);
+
 	pmlmeext->last_scan_time = jiffies;
 	DBG_871X("<========  %s return %d\n", __func__, ret);
 	return ret;
-
 }
 
 static int __init rtw_drv_entry(void)

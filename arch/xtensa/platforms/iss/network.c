@@ -16,6 +16,8 @@
  *
  */
 
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/list.h>
 #include <linux/irq.h>
 #include <linux/spinlock.h>
@@ -105,13 +107,17 @@ static char *split_if_spec(char *str, ...)
 
 	va_start(ap, str);
 	while ((arg = va_arg(ap, char**)) != NULL) {
-		if (*str == '\0')
+		if (*str == '\0') {
+			va_end(ap);
 			return NULL;
+		}
 		end = strchr(str, ',');
 		if (end != str)
 			*arg = str;
-		if (end == NULL)
+		if (end == NULL) {
+			va_end(ap);
 			return NULL;
+		}
 		*end++ = '\0';
 		str = end;
 	}
@@ -345,9 +351,9 @@ static int iss_net_poll(void)
 }
 
 
-static void iss_net_timer(unsigned long priv)
+static void iss_net_timer(struct timer_list *t)
 {
-	struct iss_net_private *lp = (struct iss_net_private *)priv;
+	struct iss_net_private *lp = from_timer(lp, t, timer);
 
 	iss_net_poll();
 	spin_lock(&lp->lock);
@@ -382,10 +388,8 @@ static int iss_net_open(struct net_device *dev)
 	spin_unlock_bh(&opened_lock);
 	spin_lock_bh(&lp->lock);
 
-	init_timer(&lp->timer);
+	timer_setup(&lp->timer, iss_net_timer, 0);
 	lp->timer_val = ISS_NET_TIMER_VALUE;
-	lp->timer.data = (unsigned long) lp;
-	lp->timer.function = iss_net_timer;
 	mod_timer(&lp->timer, jiffies + lp->timer_val);
 
 out:
@@ -424,7 +428,7 @@ static int iss_net_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (len == skb->len) {
 		lp->stats.tx_packets++;
 		lp->stats.tx_bytes += skb->len;
-		dev->trans_start = jiffies;
+		netif_trans_update(dev);
 		netif_start_queue(dev);
 
 		/* this is normally done in the interrupt when tx finishes */
@@ -478,7 +482,7 @@ static int iss_net_change_mtu(struct net_device *dev, int new_mtu)
 	return -EINVAL;
 }
 
-void iss_net_user_timer_expire(unsigned long _conn)
+void iss_net_user_timer_expire(struct timer_list *unused)
 {
 }
 
@@ -578,8 +582,7 @@ static int iss_net_configure(int index, char *init)
 		return 1;
 	}
 
-	init_timer(&lp->tl);
-	lp->tl.function = iss_net_user_timer_expire;
+	timer_setup(&lp->tl, iss_net_user_timer_expire, 0);
 
 	return 0;
 
@@ -605,8 +608,6 @@ struct iss_net_init {
  * those fields. They will be later initialized in iss_net_init.
  */
 
-#define ERR KERN_ERR "iss_net_setup: "
-
 static int __init iss_net_setup(char *str)
 {
 	struct iss_net_private *device = NULL;
@@ -618,14 +619,14 @@ static int __init iss_net_setup(char *str)
 
 	end = strchr(str, '=');
 	if (!end) {
-		printk(ERR "Expected '=' after device number\n");
+		pr_err("Expected '=' after device number\n");
 		return 1;
 	}
 	*end = 0;
 	rc = kstrtouint(str, 0, &n);
 	*end = '=';
 	if (rc < 0) {
-		printk(ERR "Failed to parse '%s'\n", str);
+		pr_err("Failed to parse '%s'\n", str);
 		return 1;
 	}
 	str = end;
@@ -641,13 +642,13 @@ static int __init iss_net_setup(char *str)
 	spin_unlock(&devices_lock);
 
 	if (device && device->index == n) {
-		printk(ERR "Device %u already configured\n", n);
+		pr_err("Device %u already configured\n", n);
 		return 1;
 	}
 
 	new = alloc_bootmem(sizeof(*new));
 	if (new == NULL) {
-		printk(ERR "Alloc_bootmem failed\n");
+		pr_err("Alloc_bootmem failed\n");
 		return 1;
 	}
 
@@ -658,8 +659,6 @@ static int __init iss_net_setup(char *str)
 	list_add_tail(&new->list, &eth_cmd_line);
 	return 1;
 }
-
-#undef ERR
 
 __setup("eth", iss_net_setup);
 
@@ -681,6 +680,4 @@ static int iss_net_init(void)
 
 	return 1;
 }
-
-module_init(iss_net_init);
-
+device_initcall(iss_net_init);

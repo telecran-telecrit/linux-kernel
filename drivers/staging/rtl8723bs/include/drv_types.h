@@ -1,15 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
  *
  ******************************************************************************/
 /*-------------------------------------------------------------------------------
@@ -22,6 +14,8 @@
 #ifndef __DRV_TYPES_H__
 #define __DRV_TYPES_H__
 
+#include <linux/version.h>
+#include <linux/sched/signal.h>
 #include <autoconf.h>
 #include <basic_types.h>
 #include <osdep_service.h>
@@ -175,7 +169,8 @@ struct registry_priv
 	u8 bt_ampdu;
 	s8	ant_num;
 
-	bool	bAcceptAddbaReq;
+	/* false:Reject AP's Add BA req, true:accept AP's Add BA req */
+	bool	accept_addba_req;
 
 	u8 antdiv_cfg;
 	u8 antdiv_type;
@@ -207,10 +202,8 @@ struct registry_priv
 	u8 RFE_Type;
 	u8  check_fw_ps;
 
-#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 	u8 load_phy_file;
 	u8 RegDecryptCustomFile;
-#endif
 
 #ifdef CONFIG_MULTI_VIR_IFACES
 	u8 ext_iface_num;/* primary/secondary iface is excluded */
@@ -691,9 +684,9 @@ int rtw_suspend_wow(struct adapter *padapter);
 int rtw_resume_process_wow(struct adapter *padapter);
 #endif
 
-__inline static u8 *myid(struct eeprom_priv *peepriv)
+static inline u8 *myid(struct eeprom_priv *peepriv)
 {
-	return (peepriv->mac_addr);
+	return peepriv->mac_addr;
 }
 
 /*  HCI Related header file */

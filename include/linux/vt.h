@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _LINUX_VT_H
 #define _LINUX_VT_H
 
@@ -10,8 +11,6 @@
 #define VT_WRITE		0x0003 /* A char got output */
 #define VT_UPDATE		0x0004 /* A bigger update occurred */
 #define VT_PREWRITE		0x0005 /* A char is about to be written to the console */
-
-#define SUSPEND_CONSOLE	(MAX_NR_CONSOLES-1)
 
 #ifdef CONFIG_VT_CONSOLE
 
